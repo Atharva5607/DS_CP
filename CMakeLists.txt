@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.10)
+project(NetworkResilienceSimulator CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+include_directories(backend third_party)
+
+add_executable(netsim backend/main.cpp)
+add_executable(run_tests tests/test_all.cpp)
+
+find_package(Threads REQUIRED)
+target_link_libraries(netsim Threads::Threads)
+if(WIN32)
+  target_link_libraries(netsim ws2_32 wsock32)
+  target_compile_definitions(netsim PRIVATE _WIN32_WINNT=0x0A00)
+endif()
+
+enable_testing()
+add_test(NAME unit_tests COMMAND run_tests)

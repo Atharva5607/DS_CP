@@ -1,0 +1,27 @@
+# Executables and build outputs
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+netsim
+netsim.exe
+test_all
+test_all.exe
+
+# Build directories
+build/
+bin/
+cmake-build-*/
+.cache/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS specific
+Thumbs.db
+.DS_Store

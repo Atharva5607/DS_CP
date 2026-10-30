@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network Resilience and Incident Response Simulator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Network Resilience Simulator<small>DSA course project</small></div>
+  <div class="grp">
+    <select id="scenario" aria-label="Scenario">
+      <option value="0">Scenario: Worm outbreak (BFS)</option>
+      <option value="1">Scenario: Insider lateral movement (DFS)</option>
+      <option value="2">Scenario: APT on a crown-jewel server</option>
+      <option value="3">Scenario: Core router failure (hub attack)</option>
+      <option value="4">Scenario: Guided defence demo</option>
+    </select>
+    <button id="btn-scenario" class="primary needs-idle">Run</button>
+  </div>
+  <p id="banner" role="status" aria-live="polite">Click a machine on the map to select it.</p>
+  <div class="grp">
+    <button id="btn-save" class="ghost needs-idle" title="Download the network as a .netsim file">Save</button>
+    <label class="btn ghost" style="margin:0" title="Load a .netsim file">Load<input id="file-load" type="file" accept=".netsim,.txt" hidden></label>
+    <button id="btn-png" class="ghost" title="Download the map as an image">Image</button>
+    <button id="btn-theme" class="ghost" title="Light or dark theme">Theme</button>
+    <button id="btn-help" class="ghost" title="Keyboard shortcuts">Help</button>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="rail left" aria-label="Controls">
+    <details open>
+      <summary>Network</summary>
+      <div class="body">
+        <label>Topology
+          <select id="topology">
+            <option value="random">Random (connected)</option>
+            <option value="mesh">Grid mesh</option>
+            <option value="ring">Ring with chords</option>
+            <option value="star">Star</option>
+            <option value="tree">Binary tree</option>
+            <option value="dense">Dense</option>
+          </select>
+        </label>
+        <div class="row">
+          <label>Machines <input id="count" type="number" min="6" max="60" value="22"></label>
+          <label>Seed <input id="seed" type="number" value="42"></label>
+          <button id="btn-dice" class="ghost needs-idle" title="Random seed" style="margin-bottom:8px">Dice</button>
+        </div>
+        <div class="btns">
+          <button id="btn-generate" class="primary needs-idle">Generate</button>
+          <button id="btn-layout" class="ghost needs-idle">Re-layout</button>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Build</summary>
+      <div class="body">
+        <div class="row">
+          <label>New machine
+            <select id="new-type"><option value="PC">PC</option><option value="SERVER">Server</option><option value="ROUTER">Router</option></select>
+          </label>
+          <button id="btn-addnode" class="needs-idle" style="margin-bottom:8px">Add</button>
+        </div>
+        <div class="row">
+          <label>Link cost <input id="link-cost" type="number" min="1" max="99" value="5"></label>
+          <label>Link risk <input id="link-risk" type="number" min="1" max="99" value="50"></label>
+        </div>
+        <div class="btns">
+          <button id="btn-addlink" class="needs-idle needs-two">Add link</button>
+          <button id="btn-cut" class="needs-idle needs-two">Cut link</button>
+        </div>
+        <div class="btns one"><button id="btn-restore" class="ghost needs-idle needs-two">Restore link</button></div>
+        <p class="hint">Click selects the first machine, <b>Shift+click</b> (or right-click) the second. Links connect, cut or restore the pair.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Attack</summary>
+      <div class="body">
+        <label>Attack model
+          <select id="atk-mode">
+            <option value="bfs">Worm spread (BFS)</option>
+            <option value="dfs">Lateral movement (DFS)</option>
+            <option value="apt">Targeted APT (Dijkstra route)</option>
+            <option value="hub">Hub failure (best-connected)</option>
+            <option value="random">Random failure</option>
+          </select>
+        </label>
+        <p class="hint" id="atk-hint"></p>
+        <label>Aggressiveness <output id="aggr-out">0.9</output>
+          <input id="aggr" type="range" min="0.3" max="2.5" step="0.1" value="0.9"></label>
+        <label id="row-count" hidden>Machines to take out <output id="count-out">3</output>
+          <input id="atk-count" type="range" min="1" max="10" step="1" value="3"></label>
+        <div class="btns one"><button id="btn-attack" class="danger needs-idle">Launch attack</button></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Defend and recover</summary>
+      <div class="body">
+        <div class="btns">
+          <button id="btn-isolate" class="needs-idle">Isolate machine</button>
+          <button id="btn-respond" class="needs-idle">Handle top incident</button>
+          <button id="btn-undo" class="needs-idle">Undo last</button>
+          <button id="btn-reset" class="ghost needs-idle">Reset incident</button>
+        </div>
+        <div class="row">
+          <label>Recovery backbone
+            <select id="mst-algo"><option value="kruskal">Kruskal</option><option value="prim">Prim</option></select>
+          </label>
+          <button id="btn-backbone" class="needs-idle" style="margin-bottom:8px">Rebuild</button>
+        </div>
+        <div class="btns one"><button id="btn-advise" class="needs-idle">Defence advisor</button></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Route finder</summary>
+      <div class="body">
+        <p class="hint">From the first to the second selected machine.</p>
+        <div class="row">
+          <select id="route-mode" aria-label="Route type">
+            <option value="cost">Cheapest (defender)</option>
+            <option value="ease">Easiest (attacker)</option>
+          </select>
+          <button id="btn-route" class="needs-idle needs-two">Find route</button>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Find machines</summary>
+      <div class="body">
+        <div class="row">
+          <input id="q-name" placeholder="Name, e.g. SRV-4" aria-label="Machine name">
+          <button id="btn-find">Look up</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label>Risk from <input id="q-min" type="number" min="0" max="100" value="70"></label>
+          <label>to <input id="q-max" type="number" min="0" max="100" value="100"></label>
+          <button id="btn-risky" style="margin-bottom:8px">Search</button>
+        </div>
+        <p class="hint" id="q-result">Name lookup uses the hash table; the risk search uses the AVL tree.</p>
+      </div>
+    </details>
+  </aside>
+
+  <main class="stage">
+    <div class="canvaswrap" id="wrap">
+      <canvas id="map" aria-label="Network map"></canvas>
+      <div class="hud tl">
+        <label>Color by
+          <select id="colorby">
+            <option value="status">Status</option>
+            <option value="risk">Risk</option>
+            <option value="segment">Segment</option>
+            <option value="critical">Critical machines</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="opt-names" checked> Names</label>
+        <label><input type="checkbox" id="opt-costs"> Link costs</label>
+        <label><input type="checkbox" id="opt-size" checked> Size by importance</label>
+      </div>
+      <div class="hud tr">
+        <button id="z-in" class="ghost small" aria-label="Zoom in">+</button>
+        <button id="z-out" class="ghost small" aria-label="Zoom out">&minus;</button>
+        <button id="z-fit" class="ghost small">Fit</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <ul class="legend" id="legend" aria-label="Legend"></ul>
+      <div id="tip" hidden></div>
+    </div>
+    <div class="dock" aria-label="Playback">
+      <div class="controls">
+        <button id="btn-play" title="Pause or resume (Space)">Pause</button>
+        <button id="btn-step" title="Next step (N)">Step</button>
+        <button id="btn-skip" title="Finish instantly (S)">Skip</button>
+        <button id="btn-replay-last" class="ghost needs-idle">Replay last attack</button>
+        <button id="btn-replay-all" class="ghost needs-idle">Replay session</button>
+        <div class="speed"><span>Delay</span><input id="speed" type="range" min="10" max="500" step="10" value="120" aria-label="Animation delay"><span id="speed-out">120 ms</span></div>
+      </div>
+      <div class="now"><span id="now">Idle. Select a machine and launch an attack.</span><span id="prog"></span></div>
+      <div id="ds-strip"></div>
+    </div>
+  </main>
+
+  <aside class="rail right" aria-label="Results">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="overview" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" data-tab="analytics" aria-selected="false">Analytics</button>
+      <button class="tab" role="tab" data-tab="algos" aria-selected="false">Algorithms</button>
+      <button class="tab" role="tab" data-tab="log" aria-selected="false">Log</button>
+    </div>
+
+    <section class="panel" id="tab-overview">
+      <div class="card"><h3>Resilience</h3><dl class="tiles" id="metrics"></dl></div>
+      <div class="card"><h3>Incident queue</h3><p class="hint" style="margin:0 0 6px">Max-heap: most severe first. Click to select.</p><ol id="incidents" class="queue"></ol></div>
+      <div class="card"><h3>Inspector</h3><div id="inspector"><p class="empty">Select a machine to see its details and links.</p></div></div>
+    </section>
+
+    <section class="panel" id="tab-analytics" hidden>
+      <div class="card"><h3>Status mix</h3><canvas id="ch-status"></canvas></div>
+      <div class="card"><h3>Session timeline</h3><canvas id="ch-timeline"></canvas><p class="note">Machines per state after each action.</p></div>
+      <div class="card"><h3>Spread of the last attack</h3><canvas id="ch-spread"></canvas><p class="note" id="spread-note"></p></div>
+      <div class="card"><h3>Critical machines and links</h3><div id="critical"></div></div>
+      <div class="card"><h3>Robustness test <button id="btn-robust" class="small">Run</button></h3>
+        <canvas id="ch-robust"></canvas><p class="note" id="robust-note">Removes machines one by one and tracks the largest connected segment: best-connected first versus random.</p></div>
+      <div class="card"><h3>Attack model comparison <button id="btn-monte" class="small">Run</button></h3>
+        <canvas id="ch-monte"></canvas><p class="note" id="monte-note">Average machines compromised over many seeded runs from the selected machine.</p></div>
+      <div class="card"><h3>Defence advisor</h3><div id="advisor"><p class="empty">Select the entry machine, then press Defence advisor on the left.</p></div></div>
+      <div class="card"><h3>Degree distribution</h3><canvas id="ch-degree"></canvas></div>
+    </section>
+
+    <section class="panel" id="tab-algos" hidden>
+      <div class="card"><h3>Prim vs Kruskal <button id="btn-mstcmp" class="small">Compare</button></h3>
+        <div id="mst-compare"><p class="empty">Runs both algorithms on the current network (isolated machines and cut links excluded).</p></div></div>
+      <div class="card"><h3>Benchmark <button id="btn-bench" class="small">Run</button></h3>
+        <canvas id="ch-bench"></canvas><p class="note">Average run time in microseconds, log scale, for growing networks of the topology selected on the left.</p>
+        <canvas id="ch-bench2" style="margin-top:10px"></canvas><div id="bench-table"></div></div>
+      <div class="card"><h3>Where each structure is used</h3>
+        <ul class="list">
+          <li><span>Queue</span><span>BFS frontier</span></li>
+          <li><span>Stack</span><span>DFS, undo history</span></li>
+          <li><span>Min-heap</span><span>Dijkstra, Kruskal, Prim</span></li>
+          <li><span>Max-heap</span><span>Incidents, hub attack</span></li>
+          <li><span>Hash table</span><span>Name lookup</span></li>
+          <li><span>AVL tree</span><span>Risk index</span></li>
+          <li><span>Union-Find</span><span>Kruskal cycles</span></li>
+          <li><span>Linked list</span><span>Adjacency, event log</span></li>
+        </ul></div>
+    </section>
+
+    <section class="panel" id="tab-log" hidden>
+      <div class="card"><h3>Event log</h3><ul id="log" class="list log"></ul></div>
+      <div class="card"><h3>Algorithm trace <button id="btn-trace-clear" class="small ghost">Clear</button></h3><ul id="trace" class="list trace"></ul></div>
+    </section>
+  </aside>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<dialog id="help">
+  <h2>Keyboard shortcuts</h2>
+  <table>
+    <tr><td><kbd>Space</kbd></td><td>Pause or resume the animation</td></tr>
+    <tr><td><kbd>N</kbd></td><td>Next step while paused</td></tr>
+    <tr><td><kbd>S</kbd></td><td>Skip to the end of the animation</td></tr>
+    <tr><td><kbd>A</kbd></td><td>Launch attack from the selected machine</td></tr>
+    <tr><td><kbd>I</kbd></td><td>Isolate the selected machine</td></tr>
+    <tr><td><kbd>R</kbd></td><td>Handle the top incident</td></tr>
+    <tr><td><kbd>U</kbd></td><td>Undo the last defensive action</td></tr>
+    <tr><td><kbd>F</kbd></td><td>Fit the map to the window</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Clear the selection</td></tr>
+  </table>
+  <p class="hint">Mouse: click selects, Shift+click or right-click picks the second machine, drag a machine to move it, drag the background to pan, scroll to zoom.</p>
+  <button id="help-close" class="primary">Close</button>
+</dialog>
+
+<script src="js/util.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/view.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
